@@ -1,0 +1,23 @@
+docker build --tag genwiz-demo .
+
+docker run --detach --publish 8000:8000 genwiz-demo
+
+-- create resource group if not exists
+az group create --name web-app-simple-rg --location eastus
+
+-- create container repository
+az acr create --resource-group Api-search --name genwizavataracr --sku Standard --admin-enabled true
+
+ACR_PASSWORD=$(az acr credential show --resource-group Api-search --name genwizavataracr --query "passwords[?name == 'password'].value" --output tsv)
+
+-- build image to the container registry
+az acr build --resource-group Api-search --registry genwizavataracr --image genwizdemo:latest .
+
+-- web app service plan
+az appservice plan create --name cubikaplan --resource-group Api-search --sku B3 --is-linux
+
+-- create actual web app
+az webapp create --resource-group Api-search --plan cubikaplan --name genwiz-avatar-demo --docker-registry-server-password $ACR_PASSWORD --docker-registry-server-user genwizavataracr --role acrpull --deployment-container-image-name genwizavataracr.azurecr.io/genwizdemo:latest
+
+-- check deployment
+az webapp log tail --resource-group Api-search --name test-upload-cubika
